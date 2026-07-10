@@ -2,7 +2,10 @@ use crate as cincinnati;
 use crate::plugins::internal::dkrv2_openshift_secondary_metadata_scraper::gpg;
 use crate::plugins::internal::graph_builder::commons::get_certs_from_dir;
 use crate::plugins::internal::release_scrape_dockerv2::registry;
-use commons::{DEFAULT_ROOT_CERT_DIR, GRAPH_DATA_DIR_PARAM_KEY, SECONDARY_METADATA_PARAM_KEY};
+use commons::{
+    DEFAULT_ROOT_CERT_DIR, GRAPH_DATA_DIR_PARAM_KEY, PRODUCT_DATA_PARAM_KEY,
+    SECONDARY_METADATA_PARAM_KEY,
+};
 use reqwest::{Certificate, Client, ClientBuilder};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -360,6 +363,23 @@ impl InternalPlugin for DkrV2OpenshiftSecondaryMetadataScraperPlugin {
             .expect("Can't check if signatures exist")
         {
             tokio::fs::symlink(signatures_path, signatures_symlink).await?;
+        }
+
+        // Copy product lifecycle data if available
+        if let Some(product_path) = io.parameters.get(PRODUCT_DATA_PARAM_KEY) {
+            let source_path = std::path::Path::new(product_path);
+            if source_path.exists() {
+                let dest_path = graph_data_path.join("products.json");
+                match tokio::fs::copy(source_path, &dest_path).await {
+                    Ok(_) => {
+                        log::info!("Copied product lifecycle data to graph-data tarball");
+                    }
+                    Err(e) => {
+                        log::warn!("Failed to copy product lifecycle data: {}", e);
+                        // Don't fail - continue without product data
+                    }
+                }
+            }
         }
 
         commons::create_tar(

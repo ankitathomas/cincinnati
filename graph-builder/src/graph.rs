@@ -152,6 +152,12 @@ pub struct State {
     plugins: &'static [BoxedPlugin],
     registry: &'static prometheus::Registry,
     secondary_metadata: Arc<RwLock<String>>,
+    /// Product lifecycle JSON data
+    pub product_data: Arc<RwLock<String>>,
+    /// Last ETag from product lifecycle API
+    pub product_etag: Arc<RwLock<Option<String>>>,
+    /// Path to temporary products.json file
+    pub product_data_path: Arc<RwLock<Option<std::path::PathBuf>>>,
 }
 
 impl State {
@@ -164,6 +170,9 @@ impl State {
         plugins: &'static [BoxedPlugin],
         registry: &'static prometheus::Registry,
         secondary_metadata: Arc<RwLock<String>>,
+        product_data: Arc<RwLock<String>>,
+        product_etag: Arc<RwLock<Option<String>>>,
+        product_data_path: Arc<RwLock<Option<std::path::PathBuf>>>,
     ) -> State {
         State {
             json,
@@ -173,6 +182,9 @@ impl State {
             plugins,
             registry,
             secondary_metadata,
+            product_data,
+            product_etag,
+            product_data_path,
         }
     }
 
@@ -226,13 +238,23 @@ pub fn run(settings: &config::AppSettings, state: &State) -> ! {
         info!("graph update triggered");
         let scrape_timer = UPSTREAM_SCRAPES_DURATION.start_timer();
 
+        // Prepare plugin parameters including product data path
+        let mut parameters = std::collections::HashMap::new();
+        if let Some(ref path) = *state.product_data_path.read() {
+            if let Some(path_str) = path.to_str() {
+                parameters.insert(
+                    commons::PRODUCT_DATA_PARAM_KEY.to_string(),
+                    path_str.to_string(),
+                );
+            }
+        }
+
         let scrape = cincinnati::plugins::process_blocking(
             state.plugins.iter(),
             cincinnati::plugins::PluginIO::InternalIO(cincinnati::plugins::InternalIO {
                 // the first plugin will produce the initial graph
                 graph: Default::default(),
-                // the plugins used in the graph-builder don't expect any parameters yet
-                parameters: Default::default(),
+                parameters,
             }),
             settings.scrape_timeout_secs,
         );

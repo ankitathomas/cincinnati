@@ -38,6 +38,8 @@ use url::form_urlencoded;
 pub static GRAPH_DATA_DIR_PARAM_KEY: &str = "io.openshift.upgrades.secondary_metadata.directory";
 /// Defines the key for placing the graph_data tar path in the IO parameters
 pub static SECONDARY_METADATA_PARAM_KEY: &str = "io.openshift.upgrades.secondary_metadata.tar";
+/// Defines the key for placing the product lifecycle data path in the IO parameters
+pub static PRODUCT_DATA_PARAM_KEY: &str = "io.openshift.upgrades.product_lifecycle.path";
 /// Defines the path of default root certificate that graph_data will use
 pub static DEFAULT_ROOT_CERT_DIR: &str = "/etc/pki/ca-trust/extracted/";
 

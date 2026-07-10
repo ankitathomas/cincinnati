@@ -65,6 +65,9 @@ async fn main() -> Result<(), Error> {
         let live = Arc::new(RwLock::new(false));
         let ready = Arc::new(RwLock::new(false));
         let secondary_metadata = Arc::new(RwLock::new(String::new()));
+        let product_data = Arc::new(RwLock::new(String::new()));
+        let product_etag = Arc::new(RwLock::new(None));
+        let product_data_path = Arc::new(RwLock::new(None));
         graph::State::new(
             json_graph,
             settings.mandatory_client_parameters.clone(),
@@ -73,8 +76,17 @@ async fn main() -> Result<(), Error> {
             Box::leak(Box::new(plugins)),
             Box::leak(Box::new(registry)),
             secondary_metadata,
+            product_data,
+            product_etag,
+            product_data_path,
         )
     };
+
+    // Extract product lifecycle settings before moving settings
+    let product_enabled = settings.product_enabled;
+    let product_api_url = settings.product_api_url.clone();
+    let product_poll_interval_secs = settings.product_poll_interval_secs;
+    let product_timeout_secs = settings.product_timeout_secs;
 
     // Graph scraper
     {
@@ -84,8 +96,24 @@ async fn main() -> Result<(), Error> {
         });
     }
 
+    // Product lifecycle fetcher
+    {
+        let product_state = Arc::new(state.clone());
+        tokio::spawn(async move {
+            graph_builder::product_lifecycle::run(
+                product_enabled,
+                product_api_url,
+                product_poll_interval_secs,
+                product_timeout_secs,
+                product_state,
+            )
+            .await
+        });
+    }
+
     // Status service.
     graph::register_metrics(state.registry())?;
+    graph_builder::product_lifecycle::register_metrics(state.registry())?;
 
     let status_state = state.clone();
     let metrics_server = HttpServer::new(move || {
@@ -212,6 +240,9 @@ mod tests {
             metrics::new_registry(Some(config::METRICS_PREFIX.to_string())).unwrap(),
         ));
         let secondary_metadata = Arc::new(RwLock::new(String::new()));
+        let product_data = Arc::new(RwLock::new(String::new()));
+        let product_etag = Arc::new(RwLock::new(None));
+        let product_data_path = Arc::new(RwLock::new(None));
 
         State::new(
             json_graph,
@@ -221,6 +252,9 @@ mod tests {
             plugins,
             registry,
             secondary_metadata,
+            product_data,
+            product_etag,
+            product_data_path,
         )
     }
 

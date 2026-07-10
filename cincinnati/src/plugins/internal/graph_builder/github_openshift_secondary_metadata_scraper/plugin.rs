@@ -7,7 +7,10 @@ use crate as cincinnati;
 use self::cincinnati::plugins::prelude::*;
 use self::cincinnati::plugins::prelude_plugin_impl::*;
 
-use commons::{DEFAULT_ROOT_CERT_DIR, GRAPH_DATA_DIR_PARAM_KEY, SECONDARY_METADATA_PARAM_KEY};
+use commons::{
+    DEFAULT_ROOT_CERT_DIR, GRAPH_DATA_DIR_PARAM_KEY, PRODUCT_DATA_PARAM_KEY,
+    SECONDARY_METADATA_PARAM_KEY,
+};
 use tokio::sync::Mutex as FuturesMutex;
 
 pub static DEFAULT_OUTPUT_ALLOWLIST: &[&str] = &[
@@ -521,6 +524,23 @@ impl InternalPlugin for GithubOpenshiftSecondaryMetadataScraperPlugin {
                 .expect("Can't check if signatures exist")
             {
                 tokio::fs::symlink(signatures_path, signatures_symlink).await?;
+            }
+
+            // Copy product lifecycle data if available
+            if let Some(product_path) = io.parameters.get(PRODUCT_DATA_PARAM_KEY) {
+                let source_path = std::path::Path::new(product_path);
+                if source_path.exists() {
+                    let dest_path = graph_data_dir.as_path().join("products.json");
+                    match tokio::fs::copy(source_path, &dest_path).await {
+                        Ok(_) => {
+                            log::info!("Copied product lifecycle data to graph-data tarball");
+                        }
+                        Err(e) => {
+                            log::warn!("Failed to copy product lifecycle data: {}", e);
+                            // Don't fail - continue without product data
+                        }
+                    }
+                }
             }
 
             commons::create_tar(
