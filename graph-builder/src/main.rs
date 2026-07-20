@@ -153,6 +153,10 @@ async fn main() -> Result<(), Error> {
                 actix_web::web::resource(&format!("{}/graph-data", public_app_prefix.clone()))
                     .route(actix_web::web::get().to(graph::graph_data)),
             )
+            .service(
+                actix_web::web::resource(&format!("{}/products", public_app_prefix.clone()))
+                    .route(actix_web::web::get().to(graph::serve_products)),
+            )
     })
     .keep_alive(Duration::new(10, 0))
     .bind(public_addr)?
@@ -289,6 +293,19 @@ mod tests {
             "readiness check failed. Application returned {}, expected failure",
             resp.status()
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn serve_products_basic() -> Fallible<()> {
+        use actix_web::test;
+
+        // Create test products.json file
+        let test_data = r#"{"products":[]}"#;
+        let temp_dir = std::env::temp_dir();
+        let products_path = temp_dir.join("test_products.json");
+        std::fs::write(&products_path, test_data)?;
 
         Ok(())
     }

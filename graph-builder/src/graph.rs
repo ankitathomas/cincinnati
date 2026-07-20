@@ -142,6 +142,23 @@ pub async fn graph_data(
     Ok(f.unwrap())
 }
 
+// Serve products data requests from the graph-data directory.
+pub async fn serve_products(
+    _req: HttpRequest,
+    _app_data: actix_web::web::Data<State>,
+) -> Result<NamedFile, GraphError> {
+    // Read products.json from the graph-data directory
+    let products_path = std::path::Path::new("/var/lib/cincinnati/graph-data/products.json");
+    let f = NamedFile::open(products_path);
+    if f.is_err() {
+        return Err(GraphError::FileOpenError(format!(
+            "unable to open products.json: {}",
+            f.unwrap_err()
+        )));
+    }
+    Ok(f.unwrap())
+}
+
 #[derive(Clone)]
 pub struct State {
     json: Arc<RwLock<String>>,
