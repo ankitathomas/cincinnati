@@ -84,8 +84,8 @@ pub struct AppSettings {
     /// Jaeger host and port for tracing support
     pub tracing_endpoint: Option<String>,
 
-    /// Enable product lifecycle data fetching
-    #[default(true)]
+    /// Enable product lifecycle data fetching (only needed at graph-data image build time)
+    #[default(false)]
     pub product_enabled: bool,
 
     /// URL for the Red Hat product lifecycle API
